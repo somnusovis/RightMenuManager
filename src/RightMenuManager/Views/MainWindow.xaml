@@ -1,0 +1,717 @@
+<Window x:Class="RightMenuManager.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:RightMenuManager.Converters"
+        xmlns:models="clr-namespace:RightMenuManager.Models"
+        Title="右键管家"
+        Width="1220"
+        Height="820"
+        MinWidth="1040"
+        MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        FontFamily="Microsoft YaHei UI, Segoe UI"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        PreviewKeyDown="OnWindowPreviewKeyDown">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
+        <conv:EmptyStringToVisibilityConverter x:Key="EmptyToVis" />
+        <conv:NonEmptyStringToVisibilityConverter x:Key="NonEmptyToVis" />
+        <conv:NullToVisibilityConverter x:Key="NullToVis" />
+        <conv:NotNullToVisibilityConverter x:Key="NotNullToVis" />
+
+        <Style x:Key="SourceBadge" TargetType="Border" BasedOn="{StaticResource BadgeBorder}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SourceShort}" Value="HKCU">
+                    <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding SourceShort}" Value="HKLM32">
+                    <Setter Property="Background" Value="#F4F0FF" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Window.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="236" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ================= 侧边栏 ================= -->
+        <Border Grid.Column="0"
+                Background="{DynamicResource SidebarBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,1,0">
+            <Grid Margin="14,18,14,14">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- 品牌 -->
+                <StackPanel Orientation="Horizontal" Margin="8,2,0,22">
+                    <Border Width="38" Height="38"
+                            CornerRadius="11"
+                            Background="{DynamicResource AccentBrush}">
+                        <TextBlock Text="&#xE7C9;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="18"
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="右键管家"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="右键菜单管理器"
+                                   FontSize="10.5"
+                                   Foreground="{DynamicResource TextTertiaryBrush}"
+                                   Margin="0,2,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <TextBlock Grid.Row="1"
+                           Text="菜单场景"
+                           Style="{StaticResource SectionLabel}"
+                           Margin="10,0,0,8" />
+
+                <ListBox Grid.Row="2"
+                         AutomationProperties.Name="菜单场景"
+                         AutomationProperties.AutomationId="ScopeList"
+                         ItemsSource="{Binding Scopes}"
+                         SelectedItem="{Binding SelectedScope, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource NavItemStyle}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+
+                <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                    <Border Height="1"
+                            Background="{DynamicResource BorderBrush}"
+                            Margin="6,0,6,10" />
+
+                    <Button Style="{StaticResource GhostButton}"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="10,9"
+                            Command="{Binding OpenBackupsCommand}"
+                            AutomationProperties.Name="备份与恢复"
+                            AutomationProperties.AutomationId="OpenBackupsButton"
+                            ToolTip="查看删除前的自动备份">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="26" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="&#xE81C;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="备份与恢复"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+
+                    <!-- 权限状态 -->
+                    <Border Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="12,10"
+                            Margin="0,8,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Ellipse Width="8" Height="8"
+                                     VerticalAlignment="Center">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{DynamicResource WarningBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsAdmin}" Value="True">
+                                                <Setter Property="Fill" Value="{DynamicResource SuccessBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+
+                            <StackPanel Grid.Column="1" Margin="9,0,6,0">
+                                <TextBlock Text="{Binding AdminStatusText}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="{Binding AdminSubText}"
+                                           FontSize="10.5"
+                                           Foreground="{DynamicResource TextTertiaryBrush}"
+                                           Margin="0,2,0,0" />
+                            </StackPanel>
+
+                            <Button Grid.Column="2"
+                                    Content="提升"
+                                    Style="{StaticResource LinkButton}"
+                                    Command="{Binding ElevateCommand}"
+                                    Visibility="{Binding IsAdmin, Converter={StaticResource InverseBoolToVis}}"
+                                    ToolTip="以管理员身份重新启动" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ================= 主区域 ================= -->
+        <Grid Grid.Column="1" Margin="26,20,26,14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 标题 -->
+            <Grid Margin="2,0,2,16">
+                <StackPanel>
+                    <TextBlock x:Name="ScopeTitleText"
+                               AutomationProperties.AutomationId="ScopeTitle"
+                               Text="{Binding SelectedScope.Title}"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Text="{Binding SelectedScope.Description}"
+                               FontSize="12.5"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <Border Background="{DynamicResource AccentSoftBrush}"
+                            CornerRadius="7"
+                            Padding="9,4"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="{Binding TotalCount, StringFormat='共 {0} 项'}"
+                                   FontSize="11.5"
+                                   Foreground="{DynamicResource AccentBrush}" />
+                    </Border>
+                    <Button Style="{StaticResource IconButton}"
+                            Command="{Binding RefreshCommand}"
+                            AutomationProperties.Name="刷新"
+                            ToolTip="刷新（F5）">
+                        <TextBlock Text="&#xE72C;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="15" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- 工具栏 -->
+            <Grid Grid.Row="1" Margin="2,0,2,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="290" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 搜索 -->
+                <Border Height="36"
+                        Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="9"
+                        VerticalAlignment="Center">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="34" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="30" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="&#xE721;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="13"
+                                   Foreground="{DynamicResource TextTertiaryBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+
+                        <Grid Grid.Column="1">
+                            <TextBox x:Name="SearchBox"
+                                     Style="{StaticResource BareTextBox}"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     VerticalAlignment="Center" />
+                            <TextBlock Text="搜索名称、命令或注册表路径"
+                                       FontSize="12.5"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"
+                                       Visibility="{Binding SearchText, Converter={StaticResource EmptyToVis}}" />
+                        </Grid>
+
+                        <Button Grid.Column="2"
+                                Style="{StaticResource IconButton}"
+                                Width="26" Height="26"
+                                Command="{Binding ClearSearchCommand}"
+                                Visibility="{Binding SearchText, Converter={StaticResource NonEmptyToVis}}"
+                                ToolTip="清除搜索">
+                            <TextBlock Text="&#xE711;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="11" />
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- 筛选 -->
+                <Border Grid.Column="1"
+                        Background="#EEF1F6"
+                        CornerRadius="9"
+                        Padding="3"
+                        Margin="12,0,0,0"
+                        VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="全部"
+                                     GroupName="Filter"
+                                     Style="{StaticResource FilterPill}"
+                                     IsChecked="{Binding IsAllFilter, Mode=TwoWay}" />
+                        <RadioButton Content="已启用"
+                                     GroupName="Filter"
+                                     Style="{StaticResource FilterPill}"
+                                     IsChecked="{Binding IsEnabledFilter, Mode=TwoWay}" />
+                        <RadioButton Content="已禁用"
+                                     GroupName="Filter"
+                                     Style="{StaticResource FilterPill}"
+                                     IsChecked="{Binding IsDisabledFilter, Mode=TwoWay}" />
+                        <RadioButton Content="扩展"
+                                     GroupName="Filter"
+                                     Style="{StaticResource FilterPill}"
+                                     IsChecked="{Binding IsExtensionFilter, Mode=TwoWay}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 操作 -->
+                <Border Grid.Column="3"
+                        Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="9"
+                        Padding="3"
+                        VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+
+                        <Button Style="{StaticResource IconButton}"
+                                Command="{Binding EnableSelectedCommand}"
+                                AutomationProperties.Name="启用选中项"
+                                ToolTip="启用选中项"
+                                Foreground="{DynamicResource SuccessBrush}">
+                            <TextBlock Text="&#xE73E;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="14" />
+                        </Button>
+
+                        <Button Style="{StaticResource IconButton}"
+                                Command="{Binding DisableSelectedCommand}"
+                                AutomationProperties.Name="禁用选中项"
+                                ToolTip="禁用选中项">
+                            <TextBlock Text="&#xE711;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="12" />
+                        </Button>
+
+                        <Button Style="{StaticResource DangerButton}"
+                                Width="34" Height="34"
+                                Padding="0"
+                                Command="{Binding DeleteSelectedCommand}"
+                                AutomationProperties.Name="备份并删除选中项"
+                                AutomationProperties.AutomationId="DeleteSelectedButton"
+                                ToolTip="备份并删除选中项">
+                            <TextBlock Text="&#xE74D;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="14" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 列表 -->
+            <Border Grid.Row="2"
+                    Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    ClipToBounds="True">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="38" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Background="#FAFBFD"
+                            BorderBrush="{DynamicResource DividerBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="18,0">
+                        <Grid>
+                            <TextBlock Text="菜单项"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="来源 / 状态"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,70,0" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <ListBox x:Name="MenuList"
+                                 AutomationProperties.Name="菜单项列表"
+                                 AutomationProperties.AutomationId="MenuList"
+                                 ItemsSource="{Binding Items}"
+                                 SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ItemContainerStyle="{StaticResource MenuRowStyle}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:ContextMenuItem}">
+                                    <Grid Height="58">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                                        <Setter Property="Opacity" Value="0.62" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="44" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="64" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- 图标 -->
+                                        <Border Width="30" Height="30"
+                                                CornerRadius="7"
+                                                Background="#F3F5F9"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center">
+                                            <Grid>
+                                                <TextBlock Text="&#xE7C3;"
+                                                           FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="14"
+                                                           Foreground="{DynamicResource TextTertiaryBrush}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           Visibility="{Binding Icon, Converter={StaticResource NullToVis}}" />
+                                                <Image Source="{Binding Icon}"
+                                                       Width="20" Height="20"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                                       Visibility="{Binding Icon, Converter={StaticResource NotNullToVis}}" />
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- 名称 / 命令 -->
+                                        <StackPanel Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    Margin="2,0,12,0">
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="13.5"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding SecondaryText}"
+                                                       FontSize="11.5"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+
+                                        <!-- 标签 -->
+                                        <StackPanel Grid.Column="2"
+                                                    Orientation="Horizontal"
+                                                    VerticalAlignment="Center"
+                                                    Margin="0,0,16,0">
+                                            <Border Style="{StaticResource SourceBadge}"
+                                                    ToolTip="{Binding SourceLabel}">
+                                                <TextBlock Text="{Binding SourceShort}"
+                                                           Style="{StaticResource BadgeText}" />
+                                            </Border>
+
+                                            <Border Style="{StaticResource BadgeBorder}"
+                                                    Background="{DynamicResource PurpleSoftBrush}"
+                                                    Visibility="{Binding IsExtension, Converter={StaticResource BoolToVis}}"
+                                                    ToolTip="Shell 扩展（COM 组件）">
+                                                <TextBlock Text="扩展"
+                                                           Style="{StaticResource BadgeText}"
+                                                           Foreground="{DynamicResource PurpleBrush}" />
+                                            </Border>
+
+                                            <Border Style="{StaticResource BadgeBorder}"
+                                                    Visibility="{Binding IsExtended, Converter={StaticResource BoolToVis}}"
+                                                    ToolTip="仅在按住 Shift 时显示">
+                                                <TextBlock Text="Shift"
+                                                           Style="{StaticResource BadgeText}" />
+                                            </Border>
+
+                                            <Border Style="{StaticResource BadgeBorder}"
+                                                    Background="{DynamicResource AccentSoftBrush}"
+                                                    Visibility="{Binding IsSubMenu, Converter={StaticResource BoolToVis}}"
+                                                    ToolTip="该菜单项包含子菜单">
+                                                <TextBlock Text="子菜单"
+                                                           Style="{StaticResource BadgeText}"
+                                                           Foreground="{DynamicResource AccentBrush}" />
+                                            </Border>
+
+                                            <Border Style="{StaticResource BadgeBorder}"
+                                                    Background="{DynamicResource WarningSoftBrush}"
+                                                    Visibility="{Binding IsProtected, Converter={StaticResource BoolToVis}}"
+                                                    ToolTip="{Binding ProtectionReason}">
+                                                <TextBlock Text="受保护"
+                                                           Style="{StaticResource BadgeText}"
+                                                           Foreground="{DynamicResource WarningBrush}" />
+                                            </Border>
+                                        </StackPanel>
+
+                                        <!-- 开关 -->
+                                        <CheckBox Grid.Column="3"
+                                                  HorizontalAlignment="Right"
+                                                  VerticalAlignment="Center"
+                                                  AutomationProperties.Name="{Binding DisplayName}"
+                                                  IsChecked="{Binding IsEnabled, Mode=OneWay}"
+                                                  IsEnabled="{Binding CanToggle}"
+                                                  Checked="OnToggleChanged"
+                                                  Unchecked="OnToggleChanged">
+                                            <CheckBox.Style>
+                                                <Style TargetType="CheckBox"
+                                                       BasedOn="{StaticResource ToggleSwitch}">
+                                                    <Setter Property="ToolTip" Value="启用 / 禁用" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsProtected}" Value="True">
+                                                            <Setter Property="ToolTip" Value="{Binding ProtectionReason}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </CheckBox.Style>
+                                        </CheckBox>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- 空状态 -->
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}">
+                            <Border Width="52" Height="52"
+                                    CornerRadius="16"
+                                    Background="#F4F6FA"
+                                    HorizontalAlignment="Center">
+                                <TextBlock Text="&#xE721;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="20"
+                                           Foreground="{DynamicResource TextTertiaryBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Text="没有找到匹配的菜单项"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,12,0,0" />
+                            <TextBlock Text="试试更换场景、清空搜索词或调整筛选条件"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <!-- 加载中 -->
+                        <Border Background="#E6FFFFFF"
+                                Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ProgressBar Style="{StaticResource IndeterminateBar}"
+                                             IsIndeterminate="True" />
+                                <TextBlock Text="正在读取注册表…"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,12,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- 详情 -->
+            <Border Grid.Row="3"
+                    Margin="0,12,0,0"
+                    Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="18,14"
+                    Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding SelectedItem.DisplayName}"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <Border CornerRadius="4"
+                                    Padding="6,2"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{DynamicResource SuccessSoftBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedItem.IsEnabled}" Value="False">
+                                                <Setter Property="Background" Value="#F2F4F9" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding SelectedItem.StateLabel}"
+                                           FontSize="10.5">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedItem.IsEnabled}" Value="False">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Border>
+                        </StackPanel>
+
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="48" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="注册表" Style="{StaticResource DetailLabel}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding SelectedItem.RegistryPath}"
+                                       ToolTip="{Binding SelectedItem.RegistryPath}"
+                                       Style="{StaticResource DetailValue}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Grid>
+
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="48" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="文件" Style="{StaticResource DetailLabel}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding SelectedItem.FilePathDisplay}"
+                                       ToolTip="{Binding SelectedItem.FilePath}"
+                                       Style="{StaticResource DetailValue}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Margin="16,0,0,0">
+                        <Button Content="打开注册表"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenRegistryCommand}"
+                                AutomationProperties.Name="打开注册表位置"
+                                Margin="0,0,8,0" />
+                        <Button Content="文件位置"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenFileLocationCommand}"
+                                AutomationProperties.Name="打开文件位置"
+                                IsEnabled="{Binding HasFilePath}"
+                                Margin="0,0,8,0" />
+                        <Button Content="复制命令"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding CopyCommandCommand}"
+                                AutomationProperties.Name="复制命令行" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 状态栏 -->
+            <Grid Grid.Row="4" Margin="4,10,4,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="{Binding StatusMessage}"
+                           FontSize="11.5"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
+
+                <TextBlock Grid.Column="1"
+                           AutomationProperties.AutomationId="CountSummary"
+                           Text="{Binding CountSummary}"
+                           FontSize="11.5"
+                           Foreground="{DynamicResource TextTertiaryBrush}"
+                           VerticalAlignment="Center"
+                           Margin="16,0,0,0" />
+
+                <Border Grid.Column="2"
+                        Width="1" Height="10"
+                        Background="{DynamicResource BorderBrush}"
+                        Margin="12,0"
+                        VerticalAlignment="Center" />
+
+                <Button Grid.Column="3"
+                        Content="重启资源管理器"
+                        Style="{StaticResource LinkButton}"
+                        Command="{Binding RestartExplorerCommand}"
+                        FontSize="11.5"
+                        VerticalAlignment="Center"
+                        ToolTip="部分 Shell 扩展在重启资源管理器后才会更新" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
